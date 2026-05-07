@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -36,5 +37,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
         Route::get('/status',    [PremiumController::class, 'status']);
         Route::get('/plans',     [PremiumController::class, 'plans']);
         Route::post('/activate', [PremiumController::class, 'activate']);
+    });
+
+    // AI
+    Route::prefix('ai')->group(function () {
+        Route::post('/parse-transaction', [AiController::class, 'parseTransaction']);
+        Route::post('/scan-receipt',      [AiController::class, 'scanReceipt']);
     });
 });
