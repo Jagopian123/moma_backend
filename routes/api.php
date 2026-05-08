@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BackupController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\PremiumController;
@@ -43,5 +44,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::prefix('ai')->group(function () {
         Route::post('/parse-transaction', [AiController::class, 'parseTransaction']);
         Route::post('/scan-receipt',      [AiController::class, 'scanReceipt']);
+    });
+
+    // Backup
+    Route::prefix('backup')->group(function () {
+        Route::post('/',  [BackupController::class, 'store']);
+        Route::get('/',   [BackupController::class, 'show']);
     });
 });
