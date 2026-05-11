@@ -49,7 +49,7 @@ class UserController extends Controller
     {
         $user = $request->user();
         $user->tokens()->delete();
-        $user->delete();
+        $user->forceDelete();
 
         return response()->json([
             'success' => true,
