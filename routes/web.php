@@ -9,3 +9,7 @@ Route::get('/', function () {
 Route::get('/kebijakan-privasi', function () {
     return view('privacy');
 });
+
+Route::get('/hapus-akun', function () {
+    return view('delete-account');
+});
