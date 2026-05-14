@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\AiService;
 use App\Services\ReceiptService;
 use Illuminate\Http\JsonResponse;
@@ -25,12 +26,26 @@ class AiController extends Controller
             'message' => 'required|string|max:500',
         ]);
 
+        /** @var User $user */
+        $user = $request->user();
+
+        if (!$user->canUseAi()) {
+            return response()->json([
+                'success'           => false,
+                'message'           => 'Kredit AI harian habis. Upgrade ke Premium untuk akses unlimited.',
+                'credits_remaining' => 0,
+            ], 429);
+        }
+
         try {
             $result = $this->aiService->parseTransaction($request->string('message'));
 
+            $user->incrementAiCredits();
+
             return response()->json([
-                'success' => true,
-                'data'    => $result,
+                'success'           => true,
+                'data'              => $result,
+                'credits_remaining' => $user->remainingAiCredits(),
             ]);
         } catch (Throwable $e) {
             return response()->json([
@@ -45,13 +60,23 @@ class AiController extends Controller
     public function scanReceipt(Request $request): JsonResponse
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,jpg,png|max:5120', // max 5 MB
+            'image' => 'required|image|mimes:jpeg,jpg,png|max:5120',
         ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        if (!$user->canUseAi()) {
+            return response()->json([
+                'success'           => false,
+                'message'           => 'Kredit AI harian habis. Upgrade ke Premium untuk akses unlimited.',
+                'credits_remaining' => 0,
+            ], 429);
+        }
 
         $storedPath = null;
 
         try {
-            // Store in private temp location — never served publicly
             $storedPath = $request->file('image')
                 ->store('temp/receipts', 'local');
 
@@ -59,9 +84,12 @@ class AiController extends Controller
 
             $result = $this->receiptService->parseReceipt($fullPath);
 
+            $user->incrementAiCredits();
+
             return response()->json([
-                'success' => true,
-                'data'    => $result,
+                'success'           => true,
+                'data'              => $result,
+                'credits_remaining' => $user->remainingAiCredits(),
             ]);
         } catch (Throwable $e) {
             return response()->json([
@@ -69,10 +97,26 @@ class AiController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         } finally {
-            // Always delete temp file — image is never stored permanently
             if ($storedPath && Storage::disk('local')->exists($storedPath)) {
                 Storage::disk('local')->delete($storedPath);
             }
         }
+    }
+
+    // ── Credit status ─────────────────────────────────────────────────────────
+
+    public function credits(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'is_premium'        => $user->isPremium(),
+                'credits_remaining' => $user->remainingAiCredits(),
+                'daily_limit'       => User::AI_FREE_DAILY_LIMIT,
+            ],
+        ]);
     }
 }
