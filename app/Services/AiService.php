@@ -73,8 +73,11 @@ class AiService
 
     private function buildPrompt(string $message): string
     {
+        $today = now()->toDateString(); // YYYY-MM-DD
         return <<<PROMPT
 Kamu adalah parser transaksi keuangan untuk pengguna Indonesia. Ubah input teks berikut menjadi JSON array berisi SEMUA transaksi yang disebutkan.
+
+Hari ini: $today
 
 ATURAN PENTING:
 - Kembalikan HANYA JSON array valid (selalu array, meskipun hanya 1 transaksi), tanpa penjelasan atau markdown
@@ -89,13 +92,14 @@ ATURAN PENTING:
   - Untuk keduanya: "Tabungan & Investasi"
   - Untuk transfer: "Transfer"
 - category_icon: emoji yang sesuai dengan kategori
+- date: tanggal transaksi format YYYY-MM-DD. Ekstrak jika user menyebutkan tanggal/waktu (contoh: "kemarin" → hari sebelum hari ini, "tadi pagi", "3 hari lalu", "2 Mei"). Jika tidak disebutkan, kembalikan null.
 
-CONTOH INPUT: "makan siang 30k cash, sarapan 20k dana, ngopi 68k bri"
+CONTOH INPUT: "makan siang 30k cash kemarin, sarapan 20k dana, ngopi 68k bri 3 hari lalu"
 CONTOH OUTPUT:
 [
-  {"type":"expense","title":"Makan Siang","amount":30000,"category_name":"Makanan & Minuman","category_icon":"🍽️","wallet_hint":"cash","to_wallet_hint":null,"description":null},
-  {"type":"expense","title":"Sarapan","amount":20000,"category_name":"Makanan & Minuman","category_icon":"🍳","wallet_hint":"dana","to_wallet_hint":null,"description":null},
-  {"type":"expense","title":"Ngopi","amount":68000,"category_name":"Makanan & Minuman","category_icon":"☕","wallet_hint":"bri","to_wallet_hint":null,"description":null}
+  {"type":"expense","title":"Makan Siang","amount":30000,"category_name":"Makanan & Minuman","category_icon":"🍽️","wallet_hint":"cash","to_wallet_hint":null,"description":null,"date":"2026-05-13"},
+  {"type":"expense","title":"Sarapan","amount":20000,"category_name":"Makanan & Minuman","category_icon":"🍳","wallet_hint":"dana","to_wallet_hint":null,"description":null,"date":null},
+  {"type":"expense","title":"Ngopi","amount":68000,"category_name":"Makanan & Minuman","category_icon":"☕","wallet_hint":"bri","to_wallet_hint":null,"description":null,"date":"2026-05-11"}
 ]
 
 INPUT USER: $message
