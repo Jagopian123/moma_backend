@@ -17,13 +17,13 @@ class AiService
         $this->model  = config('services.gemini.model', 'gemini-2.5-flash-lite');
     }
 
-    public function parseTransaction(string $message): array
+    public function parseTransaction(string $message, array $userCategories = []): array
     {
         $response = Http::timeout(30)->post(
             "{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}",
             [
                 'contents' => [
-                    ['parts' => [['text' => $this->buildPrompt($message)]]],
+                    ['parts' => [['text' => $this->buildPrompt($message, $userCategories)]]],
                 ],
                 'generationConfig' => [
                     'responseMimeType' => 'application/json',
@@ -71,13 +71,42 @@ class AiService
         return $parsed;
     }
 
-    private function buildPrompt(string $message): string
+    private function buildPrompt(string $message, array $userCategories = []): string
     {
         $today = now()->toDateString(); // YYYY-MM-DD
+
+        $userCategorySection = '';
+        $userCategoryNames   = [];
+        if (!empty($userCategories)) {
+            $lines = [];
+            foreach ($userCategories as $cat) {
+                $typeLabel = match($cat['type'] ?? '') {
+                    'expense' => 'expense',
+                    'income'  => 'income',
+                    'both'    => 'expense & income',
+                    default   => $cat['type'] ?? '',
+                };
+                $subsText = !empty($cat['subs'])
+                    ? ' (sub-kategori: ' . implode(', ', $cat['subs']) . ')'
+                    : '';
+                $lines[] = "  - \"{$cat['name']}\"{$subsText} [{$typeLabel}]";
+                $userCategoryNames[] = "\"{$cat['name']}\"";
+                foreach ($cat['subs'] ?? [] as $sub) {
+                    $userCategoryNames[] = "\"{$sub}\"";
+                }
+            }
+            $nameList = implode(', ', $userCategoryNames);
+            $userCategorySection = "\n\nKATEGORI KHUSUS PENGGUNA (PRIORITAS UTAMA — cek ini SEBELUM daftar default):\n"
+                . implode("\n", $lines)
+                . "\n- Jika transaksi cocok dengan salah satu kategori di atas, WAJIB gunakan nama persis tersebut sebagai category_name ({$nameList})"
+                . "\n- Kategori default di bawah hanya dipakai jika tidak ada yang cocok dari daftar ini";
+        }
+
         return <<<PROMPT
 Kamu adalah parser transaksi keuangan untuk pengguna Indonesia. Ubah input teks berikut menjadi JSON array berisi SEMUA transaksi yang disebutkan.
 
 Hari ini: $today
+$userCategorySection
 
 ATURAN PENTING:
 - Kembalikan HANYA JSON array valid (selalu array, meskipun hanya 1 transaksi), tanpa penjelasan atau markdown
@@ -86,7 +115,7 @@ ATURAN PENTING:
 - wallet_hint: nama dompet sumber (contoh: "cash", "bca", "mandiri", "bri", "bni", "gopay", "ovo", "dana")
 - to_wallet_hint: hanya untuk transfer, nama dompet tujuan (null jika bukan transfer)
 - title: judul singkat dan deskriptif, maks 50 karakter
-- category_name HARUS salah satu dari daftar berikut PERSIS:
+- category_name: gunakan kategori khusus pengguna di atas jika cocok, jika tidak pilih dari daftar default berikut PERSIS:
   - Untuk expense: "Makanan & Minuman", "Transportasi", "Kebutuhan Rumah Tangga", "Keuangan & Tagihan", "Kesehatan", "Pendidikan", "Belanja Pribadi", "Hiburan", "Sosial & Donasi", "Keluarga & Anak", "Lainnya"
   - Untuk income: "Pendapatan", "Pekerjaan & Bisnis"
   - Untuk keduanya: "Tabungan & Investasi"

@@ -21,7 +21,7 @@ class ReceiptService
      * Parse a receipt image and return an array of transactions.
      * The image is base64-encoded server-side; Flutter only sends multipart.
      */
-    public function parseReceipt(string $imagePath): array
+    public function parseReceipt(string $imagePath, array $userCategories = []): array
     {
         $imageData = base64_encode(file_get_contents($imagePath));
 
@@ -37,7 +37,7 @@ class ReceiptService
                                     'data'     => $imageData,
                                 ],
                             ],
-                            ['text' => $this->buildPrompt()],
+                            ['text' => $this->buildPrompt($userCategories)],
                         ],
                     ],
                 ],
@@ -92,10 +92,38 @@ class ReceiptService
         return $parsed;
     }
 
-    private function buildPrompt(): string
+    private function buildPrompt(array $userCategories = []): string
     {
-        return <<<'PROMPT'
+        $userCategorySection = '';
+        $userCategoryNames   = [];
+        if (!empty($userCategories)) {
+            $lines = [];
+            foreach ($userCategories as $cat) {
+                $typeLabel = match($cat['type'] ?? '') {
+                    'expense' => 'expense',
+                    'income'  => 'income',
+                    'both'    => 'expense & income',
+                    default   => $cat['type'] ?? '',
+                };
+                $subsText = !empty($cat['subs'])
+                    ? ' (sub-kategori: ' . implode(', ', $cat['subs']) . ')'
+                    : '';
+                $lines[] = "  - \"{$cat['name']}\"{$subsText} [{$typeLabel}]";
+                $userCategoryNames[] = "\"{$cat['name']}\"";
+                foreach ($cat['subs'] ?? [] as $sub) {
+                    $userCategoryNames[] = "\"{$sub}\"";
+                }
+            }
+            $nameList = implode(', ', $userCategoryNames);
+            $userCategorySection = "\n\nKATEGORI KHUSUS PENGGUNA (PRIORITAS UTAMA — cek ini SEBELUM daftar default):\n"
+                . implode("\n", $lines)
+                . "\n- Jika transaksi cocok dengan salah satu kategori di atas, WAJIB gunakan nama persis tersebut sebagai category_name ({$nameList})"
+                . "\n- Kategori default di bawah hanya dipakai jika tidak ada yang cocok dari daftar ini";
+        }
+
+        return <<<PROMPT
 Kamu adalah parser transaksi keuangan untuk pengguna Indonesia. Baca gambar struk/nota/bukti pembayaran ini dan ekstrak semua transaksi.
+$userCategorySection
 
 ATURAN PENTING:
 - Kembalikan HANYA JSON array valid, tanpa penjelasan atau markdown
@@ -107,7 +135,7 @@ ATURAN PENTING:
 - wallet_hint: null (tidak bisa diketahui dari struk)
 - to_wallet_hint: null
 - description: nomor transaksi / catatan penting lainnya, atau null
-- category_name HARUS salah satu dari daftar ini PERSIS:
+- category_name: gunakan kategori khusus pengguna di atas jika cocok, jika tidak pilih dari daftar default berikut PERSIS:
   Untuk expense: "Makanan & Minuman", "Transportasi", "Kebutuhan Rumah Tangga",
     "Keuangan & Tagihan", "Kesehatan", "Pendidikan", "Belanja Pribadi",
     "Hiburan", "Sosial & Donasi", "Keluarga & Anak", "Lainnya"

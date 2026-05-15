@@ -23,7 +23,8 @@ class AiController extends Controller
     public function parseTransaction(Request $request): JsonResponse
     {
         $request->validate([
-            'message' => 'required|string|max:500',
+            'message'        => 'required|string|max:500',
+            'user_categories' => 'nullable|array',
         ]);
 
         /** @var User $user */
@@ -38,7 +39,8 @@ class AiController extends Controller
         }
 
         try {
-            $result = $this->aiService->parseTransaction($request->string('message'));
+            $userCategories = $request->input('user_categories', []);
+            $result = $this->aiService->parseTransaction($request->string('message'), $userCategories);
 
             $user->incrementAiCredits();
 
@@ -60,7 +62,8 @@ class AiController extends Controller
     public function scanReceipt(Request $request): JsonResponse
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,jpg,png|max:5120',
+            'image'           => 'required|image|mimes:jpeg,jpg,png|max:5120',
+            'user_categories' => 'nullable|string',
         ]);
 
         /** @var User $user */
@@ -82,7 +85,10 @@ class AiController extends Controller
 
             $fullPath = Storage::disk('local')->path($storedPath);
 
-            $result = $this->receiptService->parseReceipt($fullPath);
+            $rawCategories = $request->input('user_categories', '[]');
+            $userCategories = json_decode($rawCategories, true) ?? [];
+
+            $result = $this->receiptService->parseReceipt($fullPath, $userCategories);
 
             $user->incrementAiCredits();
 
