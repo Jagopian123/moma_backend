@@ -95,7 +95,6 @@ class ReceiptService
     private function buildPrompt(array $userCategories = []): string
     {
         $userCategorySection = '';
-        $userCategoryNames   = [];
         if (!empty($userCategories)) {
             $lines = [];
             foreach ($userCategories as $cat) {
@@ -106,55 +105,32 @@ class ReceiptService
                     default   => $cat['type'] ?? '',
                 };
                 $subsText = !empty($cat['subs'])
-                    ? ' (sub-kategori: ' . implode(', ', $cat['subs']) . ')'
+                    ? ' | subs: ' . implode(', ', $cat['subs'])
                     : '';
                 $lines[] = "  - \"{$cat['name']}\"{$subsText} [{$typeLabel}]";
-                $userCategoryNames[] = "\"{$cat['name']}\"";
-                foreach ($cat['subs'] ?? [] as $sub) {
-                    $userCategoryNames[] = "\"{$sub}\"";
-                }
             }
-            $nameList = implode(', ', $userCategoryNames);
-            $userCategorySection = "\n\nKATEGORI KHUSUS PENGGUNA (PRIORITAS UTAMA — cek ini SEBELUM daftar default):\n"
+            $userCategorySection = "\n\nKATEGORI USER [PRIORITAS — periksa SEBELUM default]:\n"
                 . implode("\n", $lines)
-                . "\n- Jika transaksi cocok dengan salah satu kategori di atas, WAJIB gunakan nama persis tersebut sebagai category_name ({$nameList})"
-                . "\n- Kategori default di bawah hanya dipakai jika tidak ada yang cocok dari daftar ini";
+                . "\nWAJIB pakai nama PERSIS jika cocok. Default hanya jika tidak ada yang cocok.";
         }
 
         return <<<PROMPT
-Kamu adalah parser transaksi keuangan untuk pengguna Indonesia. Baca gambar struk/nota/bukti pembayaran ini dan ekstrak semua transaksi.
-$userCategorySection
+Parser struk keuangan Indonesia. Ekstrak semua transaksi dari gambar.$userCategorySection
 
-ATURAN PENTING:
-- Kembalikan HANYA JSON array valid, tanpa penjelasan atau markdown
-- Jika tidak ada struk yang jelas dalam gambar, kembalikan []
-- Jumlah dalam angka IDR (Rupiah). Jika tidak ada simbol mata uang, asumsikan IDR
-- type: "expense" untuk pembelian/pembayaran, "income" untuk penerimaan uang
-- Gunakan TOTAL keseluruhan sebagai amount, bukan item individual (kecuali tidak ada total)
-- title: nama merchant atau deskripsi singkat struk, maks 50 karakter
-- wallet_hint: null (tidak bisa diketahui dari struk)
-- to_wallet_hint: null
-- description: nomor transaksi / catatan penting lainnya, atau null
-- category_name: gunakan kategori khusus pengguna di atas jika cocok, jika tidak pilih dari daftar default berikut PERSIS:
-  Untuk expense: "Makanan & Minuman", "Transportasi", "Kebutuhan Rumah Tangga",
-    "Keuangan & Tagihan", "Kesehatan", "Pendidikan", "Belanja Pribadi",
-    "Hiburan", "Sosial & Donasi", "Keluarga & Anak", "Lainnya"
-  Untuk income: "Pendapatan", "Pekerjaan & Bisnis"
-- category_icon: emoji yang sesuai dengan kategori
+ATURAN (output: JSON array valid, tanpa markdown):
+- Jika tidak ada struk jelas dalam gambar, kembalikan []
+- Angka IDR, asumsikan IDR jika tidak ada simbol mata uang
+- type: "expense" (pembelian/pembayaran) | "income" (penerimaan uang)
+- amount: gunakan TOTAL keseluruhan, bukan item individual (kecuali tidak ada total)
+- title: nama merchant/deskripsi singkat, maks 50 karakter
+- wallet_hint: null | to_wallet_hint: null
+- description: nomor transaksi/catatan penting, null jika tidak ada
+- category_name (pilih PERSIS):
+  expense→ "Makanan & Minuman"|"Transportasi"|"Kebutuhan Rumah Tangga"|"Keuangan & Tagihan"|"Kesehatan"|"Pendidikan"|"Belanja Pribadi"|"Hiburan"|"Sosial & Donasi"|"Keluarga & Anak"|"Lainnya"
+  income→ "Pendapatan"|"Pekerjaan & Bisnis"
+- category_icon: emoji sesuai kategori
 
-FORMAT OUTPUT:
-[
-  {
-    "type": "expense",
-    "title": "Nama Merchant",
-    "amount": 50000,
-    "category_name": "Makanan & Minuman",
-    "category_icon": "🍽️",
-    "wallet_hint": null,
-    "to_wallet_hint": null,
-    "description": null
-  }
-]
+OUTPUT: [{"type":"expense","title":"Nama Merchant","amount":50000,"category_name":"Makanan & Minuman","category_icon":"🍽️","wallet_hint":null,"to_wallet_hint":null,"description":null}]
 PROMPT;
     }
 }

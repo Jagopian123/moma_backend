@@ -23,8 +23,9 @@ class AiController extends Controller
     public function parseTransaction(Request $request): JsonResponse
     {
         $request->validate([
-            'message'        => 'required|string|max:500',
+            'message'         => 'required|string|max:500',
             'user_categories' => 'nullable|array',
+            'user_wallets'    => 'nullable|array',
         ]);
 
         /** @var User $user */
@@ -40,7 +41,8 @@ class AiController extends Controller
 
         try {
             $userCategories = $request->input('user_categories', []);
-            $result = $this->aiService->parseTransaction($request->string('message'), $userCategories);
+            $userWallets    = $request->input('user_wallets', []);
+            $result = $this->aiService->parseTransaction($request->string('message'), $userCategories, $userWallets);
 
             $user->incrementAiCredits();
 

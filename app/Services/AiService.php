@@ -17,13 +17,13 @@ class AiService
         $this->model  = config('services.gemini.model', 'gemini-2.5-flash-lite');
     }
 
-    public function parseTransaction(string $message, array $userCategories = []): array
+    public function parseTransaction(string $message, array $userCategories = [], array $userWallets = []): array
     {
         $response = Http::timeout(30)->post(
             "{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}",
             [
                 'contents' => [
-                    ['parts' => [['text' => $this->buildPrompt($message, $userCategories)]]],
+                    ['parts' => [['text' => $this->buildPrompt($message, $userCategories, $userWallets)]]],
                 ],
                 'generationConfig' => [
                     'responseMimeType' => 'application/json',
@@ -71,12 +71,19 @@ class AiService
         return $parsed;
     }
 
-    private function buildPrompt(string $message, array $userCategories = []): string
+    private function buildPrompt(string $message, array $userCategories = [], array $userWallets = []): string
     {
-        $today = now()->toDateString(); // YYYY-MM-DD
+        $today     = now()->toDateString();
+        $yesterday = now()->subDay()->toDateString();
+
+        $walletSection = '';
+        if (!empty($userWallets)) {
+            $names = implode(', ', array_map(fn($w) => "\"{$w['name']}\"", $userWallets));
+            $walletSection = "\n\nDOMPET USER: {$names}"
+                . "\nJika user menyebut dompet, WAJIB gunakan nama PERSIS dari daftar ini jika cocok.";
+        }
 
         $userCategorySection = '';
-        $userCategoryNames   = [];
         if (!empty($userCategories)) {
             $lines = [];
             foreach ($userCategories as $cat) {
@@ -87,51 +94,36 @@ class AiService
                     default   => $cat['type'] ?? '',
                 };
                 $subsText = !empty($cat['subs'])
-                    ? ' (sub-kategori: ' . implode(', ', $cat['subs']) . ')'
+                    ? ' | subs: ' . implode(', ', $cat['subs'])
                     : '';
                 $lines[] = "  - \"{$cat['name']}\"{$subsText} [{$typeLabel}]";
-                $userCategoryNames[] = "\"{$cat['name']}\"";
-                foreach ($cat['subs'] ?? [] as $sub) {
-                    $userCategoryNames[] = "\"{$sub}\"";
-                }
             }
-            $nameList = implode(', ', $userCategoryNames);
-            $userCategorySection = "\n\nKATEGORI KHUSUS PENGGUNA (PRIORITAS UTAMA — cek ini SEBELUM daftar default):\n"
+            $userCategorySection = "\n\nKATEGORI USER [PRIORITAS — periksa SEBELUM default]:\n"
                 . implode("\n", $lines)
-                . "\n- Jika transaksi cocok dengan salah satu kategori di atas, WAJIB gunakan nama persis tersebut sebagai category_name ({$nameList})"
-                . "\n- Kategori default di bawah hanya dipakai jika tidak ada yang cocok dari daftar ini";
+                . "\nWAJIB pakai nama PERSIS jika cocok. Default hanya jika tidak ada yang cocok.";
         }
 
         return <<<PROMPT
-Kamu adalah parser transaksi keuangan untuk pengguna Indonesia. Ubah input teks berikut menjadi JSON array berisi SEMUA transaksi yang disebutkan.
+Parser transaksi keuangan Indonesia. Hari ini: $today.$walletSection$userCategorySection
 
-Hari ini: $today
-$userCategorySection
+ATURAN (output: JSON array valid, selalu array, tanpa markdown):
+- Angka IDR: "k"/"ribu"=×1000, "jt"/"juta"=×1.000.000
+- type: "expense"|"income"|"transfer"
+- title: maks 50 karakter
+- wallet_hint: gunakan nama PERSIS dari DOMPET USER di atas jika cocok, atau nama umum (cash/bca/mandiri/gopay/ovo/dana/dll), null jika tidak disebutkan
+- to_wallet_hint: dompet tujuan transfer (gunakan nama PERSIS dari DOMPET USER jika cocok), null jika bukan transfer
+- description: catatan penting, null jika tidak ada
+- category_name (pilih PERSIS):
+  expense→ "Makanan & Minuman"|"Transportasi"|"Kebutuhan Rumah Tangga"|"Keuangan & Tagihan"|"Kesehatan"|"Pendidikan"|"Belanja Pribadi"|"Hiburan"|"Sosial & Donasi"|"Keluarga & Anak"|"Lainnya"
+  income→ "Pendapatan"|"Pekerjaan & Bisnis"
+  keduanya→ "Tabungan & Investasi" | transfer→ "Transfer"
+- category_icon: emoji sesuai kategori
+- date: YYYY-MM-DD jika ada ("kemarin"=hari-1, "3 hari lalu"=hari-3, "2 Mei"=tahun ini), null jika tidak disebutkan
 
-ATURAN PENTING:
-- Kembalikan HANYA JSON array valid (selalu array, meskipun hanya 1 transaksi), tanpa penjelasan atau markdown
-- Jumlah dalam angka IDR (Rupiah). "k" atau "ribu" = ×1000, "jt" atau "juta" = ×1.000.000
-- type harus salah satu: "expense", "income", "transfer"
-- wallet_hint: nama dompet sumber (contoh: "cash", "bca", "mandiri", "bri", "bni", "gopay", "ovo", "dana")
-- to_wallet_hint: hanya untuk transfer, nama dompet tujuan (null jika bukan transfer)
-- title: judul singkat dan deskriptif, maks 50 karakter
-- category_name: gunakan kategori khusus pengguna di atas jika cocok, jika tidak pilih dari daftar default berikut PERSIS:
-  - Untuk expense: "Makanan & Minuman", "Transportasi", "Kebutuhan Rumah Tangga", "Keuangan & Tagihan", "Kesehatan", "Pendidikan", "Belanja Pribadi", "Hiburan", "Sosial & Donasi", "Keluarga & Anak", "Lainnya"
-  - Untuk income: "Pendapatan", "Pekerjaan & Bisnis"
-  - Untuk keduanya: "Tabungan & Investasi"
-  - Untuk transfer: "Transfer"
-- category_icon: emoji yang sesuai dengan kategori
-- date: tanggal transaksi format YYYY-MM-DD. Ekstrak jika user menyebutkan tanggal/waktu (contoh: "kemarin" → hari sebelum hari ini, "tadi pagi", "3 hari lalu", "2 Mei"). Jika tidak disebutkan, kembalikan null.
+CONTOH INPUT: "makan siang 30k cash kemarin, ngopi 68k bri"
+CONTOH OUTPUT: [{"type":"expense","title":"Makan Siang","amount":30000,"category_name":"Makanan & Minuman","category_icon":"🍽️","wallet_hint":"cash","to_wallet_hint":null,"description":null,"date":"$yesterday"},{"type":"expense","title":"Ngopi","amount":68000,"category_name":"Makanan & Minuman","category_icon":"☕","wallet_hint":"bri","to_wallet_hint":null,"description":null,"date":null}]
 
-CONTOH INPUT: "makan siang 30k cash kemarin, sarapan 20k dana, ngopi 68k bri 3 hari lalu"
-CONTOH OUTPUT:
-[
-  {"type":"expense","title":"Makan Siang","amount":30000,"category_name":"Makanan & Minuman","category_icon":"🍽️","wallet_hint":"cash","to_wallet_hint":null,"description":null,"date":"2026-05-13"},
-  {"type":"expense","title":"Sarapan","amount":20000,"category_name":"Makanan & Minuman","category_icon":"🍳","wallet_hint":"dana","to_wallet_hint":null,"description":null,"date":null},
-  {"type":"expense","title":"Ngopi","amount":68000,"category_name":"Makanan & Minuman","category_icon":"☕","wallet_hint":"bri","to_wallet_hint":null,"description":null,"date":"2026-05-11"}
-]
-
-INPUT USER: $message
+INPUT: $message
 PROMPT;
     }
 }
