@@ -9,26 +9,86 @@ class ReceiptService
 {
     private string $apiKey;
     private string $model;
-    private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+    private string $baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+
+    private string $geminiApiKey;
+    private string $geminiModel;
+    private string $geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
 
     public function __construct()
     {
-        $this->apiKey = config('services.gemini.api_key', '');
-        $this->model  = config('services.gemini.model', 'gemini-2.5-flash-lite');
+        $this->apiKey       = config('services.openrouter.api_key', '');
+        $this->model        = config('services.openrouter.receipt_model', 'google/gemma-3-12b-it');
+        $this->geminiApiKey = config('services.gemini.api_key', '');
+        $this->geminiModel  = config('services.gemini.model', 'gemini-2.5-flash-lite');
     }
 
-    /**
-     * Parse a receipt image and return an array of transactions.
-     * The image is base64-encoded server-side; Flutter only sends multipart.
-     */
-    public function parseReceipt(string $imagePath, array $userCategories = []): array
+    public function parseReceipt(string $imagePath, array $userCategories = [], bool $isPremium = false): array
+    {
+        $imageData = base64_encode(file_get_contents($imagePath));
+
+        $response = Http::timeout(60)
+            ->withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'HTTP-Referer'  => config('app.url', 'https://moma.app'),
+                'X-Title'       => 'MOMA Finance',
+            ])
+            ->post($this->baseUrl, [
+                'model'           => $this->model,
+                'messages'        => [
+                    [
+                        'role'    => 'user',
+                        'content' => [
+                            [
+                                'type'      => 'image_url',
+                                'image_url' => ['url' => 'data:image/jpeg;base64,' . $imageData],
+                            ],
+                            [
+                                'type' => 'text',
+                                'text' => $this->buildPrompt($userCategories),
+                            ],
+                        ],
+                    ],
+                ],
+                'response_format' => ['type' => 'json_object'],
+                'temperature'     => 0.1,
+                'provider'        => [
+                    'order'           => ['deepinfra/bf16'],
+                    'allow_fallbacks' => false,
+                ],
+            ]);
+
+        if (! $response->successful()) {
+            $status = $response->status();
+            Log::error('OpenRouter Vision error', ['status' => $status, 'body' => $response->body()]);
+
+            if ($isPremium && in_array($status, [429, 503])) {
+                return $this->parseWithGemini($imagePath, $userCategories);
+            }
+
+            throw new \RuntimeException('Gagal memproses gambar struk. Coba lagi.');
+        }
+
+        $rawText = $response->json('choices.0.message.content');
+
+        if (! $rawText) {
+            if ($isPremium) {
+                return $this->parseWithGemini($imagePath, $userCategories);
+            }
+            throw new \RuntimeException('AI tidak dapat membaca struk ini.');
+        }
+
+        return $this->processResponse($rawText);
+    }
+
+    private function parseWithGemini(string $imagePath, array $userCategories): array
     {
         $imageData = base64_encode(file_get_contents($imagePath));
 
         $response = Http::timeout(60)->post(
-            "{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}",
+            "{$this->geminiBaseUrl}/{$this->geminiModel}:generateContent?key={$this->geminiApiKey}",
             [
-                'contents' => [
+                'contents'         => [
                     [
                         'parts' => [
                             [
@@ -49,47 +109,61 @@ class ReceiptService
         );
 
         if (! $response->successful()) {
-            Log::error('Gemini Vision error', [
-                'status' => $response->status(),
-                'body'   => $response->body(),
-            ]);
+            Log::error('Gemini fallback Vision error', ['status' => $response->status(), 'body' => $response->body()]);
             throw new \RuntimeException('Gagal memproses gambar struk. Coba lagi.');
         }
 
-        $jsonText = $response->json('candidates.0.content.parts.0.text');
+        $rawText = $response->json('candidates.0.content.parts.0.text');
 
-        if (! $jsonText) {
+        if (! $rawText) {
             throw new \RuntimeException('AI tidak dapat membaca struk ini.');
         }
 
-        $parsed = json_decode($jsonText, true);
+        return $this->processResponse($rawText);
+    }
+
+    private function processResponse(string $rawText): array
+    {
+        $parsed = json_decode($this->cleanJson($rawText), true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('AI mengembalikan format yang tidak valid.');
+            throw new \RuntimeException('Gambar tidak dapat dibaca sebagai struk 🧾 Pastikan foto jelas dan berupa struk, nota, atau bukti pembayaran.');
         }
 
-        // Return empty array if AI found nothing (e.g. not a receipt)
         if (empty($parsed)) {
-            throw new \RuntimeException('Tidak ada transaksi yang dapat dibaca dari gambar ini.');
+            throw new \RuntimeException('Ini bukan struk belanja 🧾 Pastikan foto berupa struk, nota, invoice, atau bukti pembayaran ya.');
         }
 
-        // Wrap single object for consistency
         if (isset($parsed['type'])) {
             $parsed = [$parsed];
         }
 
+        if (isset($parsed['transactions']) && is_array($parsed['transactions'])) {
+            $parsed = $parsed['transactions'];
+        }
+
         if (! is_array($parsed)) {
-            throw new \RuntimeException('Format response tidak valid.');
+            throw new \RuntimeException('Ini bukan struk belanja 🧾 Pastikan foto berupa struk, nota, invoice, atau bukti pembayaran ya.');
         }
 
         foreach ($parsed as &$item) {
             if (! isset($item['type'], $item['amount'])) {
-                throw new \RuntimeException('Format data transaksi tidak valid.');
+                throw new \RuntimeException('Gambar tidak dapat dibaca sebagai struk 🧾 Pastikan foto jelas dan berupa struk, nota, atau bukti pembayaran.');
             }
             $item['amount'] = max(0, (float) $item['amount']);
         }
 
         return $parsed;
+    }
+
+    private function cleanJson(string $text): string
+    {
+        $text = trim($text);
+        if (str_starts_with($text, '```')) {
+            $text = preg_replace('/^```(?:json)?\s*/i', '', $text);
+            $text = preg_replace('/\s*```$/', '', $text);
+        }
+        return trim($text);
     }
 
     private function buildPrompt(array $userCategories = []): string
@@ -115,10 +189,13 @@ class ReceiptService
         }
 
         return <<<PROMPT
-Parser struk keuangan Indonesia. Ekstrak semua transaksi dari gambar.$userCategorySection
+Parser struk keuangan Indonesia.$userCategorySection
+
+VALIDASI WAJIB — periksa SEBELUM mengekstrak:
+Gambar HARUS berupa struk/nota/invoice/kwitansi/bukti pembayaran (kasir, toko, restoran, marketplace, transfer bank, QRIS, dsb).
+Jika gambar adalah foto biasa, produk, makanan, orang, tangkapan layar non-keuangan, dokumen bukan struk, atau gambar yang hanya kebetulan ada angka → kembalikan [] langsung.
 
 ATURAN (output: JSON array valid, tanpa markdown):
-- Jika tidak ada struk jelas dalam gambar, kembalikan []
 - Angka IDR, asumsikan IDR jika tidak ada simbol mata uang
 - type: "expense" (pembelian/pembayaran) | "income" (penerimaan uang)
 - amount: gunakan TOTAL keseluruhan, bukan item individual (kecuali tidak ada total)

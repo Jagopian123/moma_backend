@@ -25,7 +25,7 @@ class PremiumController extends Controller
                 'is_premium'         => $user->isPremium(),
                 'premium_expires_at' => $user->premium_expires_at,
                 'credits_remaining'  => $user->remainingAiCredits(),
-                'daily_limit'        => User::AI_FREE_DAILY_LIMIT,
+                'monthly_limit'      => User::AI_FREE_MONTHLY_LIMIT,
                 'features'           => $this->getFeatures($user->isPremium()),
             ],
         ]);
@@ -110,7 +110,7 @@ class PremiumController extends Controller
     private function getFeatures(bool $isPremium): array
     {
         $free = [
-            'ai_credits_per_day' => User::AI_FREE_DAILY_LIMIT,
+            'ai_credits_per_month' => User::AI_FREE_MONTHLY_LIMIT,
             'ai_unlimited'       => false,
         ];
 

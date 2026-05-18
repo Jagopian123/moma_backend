@@ -34,4 +34,11 @@ return [
         'api_key' => env('GEMINI_API_KEY'),
         'model'   => env('GEMINI_MODEL', 'gemini-2.5-flash-lite'),
     ],
+
+    // OpenRouter AI
+    'openrouter' => [
+        'api_key'       => env('OPEN_ROUTER_API_KEY'),
+        'text_model'    => env('OPEN_ROUTER_TEXT_MODEL', 'mistralai/mistral-nemo'),
+        'receipt_model' => env('OPEN_ROUTER_RECEIPT_MODEL', 'google/gemma-3-12b-it'),
+    ],
 ];

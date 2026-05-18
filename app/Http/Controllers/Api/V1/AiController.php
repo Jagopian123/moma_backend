@@ -34,7 +34,7 @@ class AiController extends Controller
         if (!$user->canUseAi()) {
             return response()->json([
                 'success'           => false,
-                'message'           => 'Kredit AI harian habis. Upgrade ke Premium untuk akses unlimited.',
+                'message'           => 'Kredit AI bulanan kamu sudah habis 😔 Upgrade ke Premium untuk catat AI tanpa batas!',
                 'credits_remaining' => 0,
             ], 429);
         }
@@ -42,7 +42,7 @@ class AiController extends Controller
         try {
             $userCategories = $request->input('user_categories', []);
             $userWallets    = $request->input('user_wallets', []);
-            $result = $this->aiService->parseTransaction($request->string('message'), $userCategories, $userWallets);
+            $result = $this->aiService->parseTransaction($request->string('message'), $userCategories, $userWallets, $user->isPremium());
 
             $user->incrementAiCredits();
 
@@ -74,7 +74,7 @@ class AiController extends Controller
         if (!$user->canUseAi()) {
             return response()->json([
                 'success'           => false,
-                'message'           => 'Kredit AI harian habis. Upgrade ke Premium untuk akses unlimited.',
+                'message'           => 'Kredit AI bulanan kamu sudah habis 😔 Upgrade ke Premium untuk catat AI tanpa batas!',
                 'credits_remaining' => 0,
             ], 429);
         }
@@ -90,7 +90,7 @@ class AiController extends Controller
             $rawCategories = $request->input('user_categories', '[]');
             $userCategories = json_decode($rawCategories, true) ?? [];
 
-            $result = $this->receiptService->parseReceipt($fullPath, $userCategories);
+            $result = $this->receiptService->parseReceipt($fullPath, $userCategories, $user->isPremium());
 
             $user->incrementAiCredits();
 
@@ -123,7 +123,7 @@ class AiController extends Controller
             'data'    => [
                 'is_premium'        => $user->isPremium(),
                 'credits_remaining' => $user->remainingAiCredits(),
-                'daily_limit'       => User::AI_FREE_DAILY_LIMIT,
+                'monthly_limit'     => User::AI_FREE_MONTHLY_LIMIT,
             ],
         ]);
     }

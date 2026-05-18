@@ -9,21 +9,72 @@ class AiService
 {
     private string $apiKey;
     private string $model;
-    private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+    private string $baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+
+    private string $geminiApiKey;
+    private string $geminiModel;
+    private string $geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
 
     public function __construct()
     {
-        $this->apiKey = config('services.gemini.api_key', '');
-        $this->model  = config('services.gemini.model', 'gemini-2.5-flash-lite');
+        $this->apiKey      = config('services.openrouter.api_key', '');
+        $this->model       = config('services.openrouter.text_model', 'mistralai/mistral-nemo');
+        $this->geminiApiKey = config('services.gemini.api_key', '');
+        $this->geminiModel  = config('services.gemini.model', 'gemini-2.5-flash-lite');
     }
 
-    public function parseTransaction(string $message, array $userCategories = [], array $userWallets = []): array
+    public function parseTransaction(string $message, array $userCategories = [], array $userWallets = [], bool $isPremium = false): array
+    {
+        $prompt = $this->buildPrompt($message, $userCategories, $userWallets);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'HTTP-Referer'  => config('app.url', 'https://moma.app'),
+                'X-Title'       => 'MOMA Finance',
+            ])
+            ->post($this->baseUrl, [
+                'model'       => $this->model,
+                'messages'    => [
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+                'temperature' => 0.1,
+                'provider'    => [
+                    'order'           => ['dekallm/fp8', 'deepinfra/fp8'],
+                    'allow_fallbacks' => false,
+                ],
+            ]);
+
+        if (! $response->successful()) {
+            $status = $response->status();
+            Log::error('OpenRouter AI error', ['status' => $status, 'body' => $response->body()]);
+
+            if ($isPremium && in_array($status, [429, 503])) {
+                return $this->parseWithGemini($prompt);
+            }
+
+            throw new \RuntimeException('Gagal menghubungi AI. Coba lagi.');
+        }
+
+        $rawText = $response->json('choices.0.message.content');
+
+        if (! $rawText) {
+            if ($isPremium) {
+                return $this->parseWithGemini($prompt);
+            }
+            throw new \RuntimeException('AI tidak dapat memproses pesan ini.');
+        }
+
+        return $this->processResponse($rawText);
+    }
+
+    private function parseWithGemini(string $prompt): array
     {
         $response = Http::timeout(30)->post(
-            "{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}",
+            "{$this->geminiBaseUrl}/{$this->geminiModel}:generateContent?key={$this->geminiApiKey}",
             [
-                'contents' => [
-                    ['parts' => [['text' => $this->buildPrompt($message, $userCategories, $userWallets)]]],
+                'contents'         => [
+                    ['parts' => [['text' => $prompt]]],
                 ],
                 'generationConfig' => [
                     'responseMimeType' => 'application/json',
@@ -33,42 +84,59 @@ class AiService
         );
 
         if (! $response->successful()) {
-            Log::error('Gemini API error', [
-                'status' => $response->status(),
-                'body'   => $response->body(),
-            ]);
+            Log::error('Gemini fallback AI error', ['status' => $response->status(), 'body' => $response->body()]);
             throw new \RuntimeException('Gagal menghubungi AI. Coba lagi.');
         }
 
-        $jsonText = $response->json('candidates.0.content.parts.0.text');
+        $rawText = $response->json('candidates.0.content.parts.0.text');
 
-        if (! $jsonText) {
+        if (! $rawText) {
             throw new \RuntimeException('AI tidak dapat memproses pesan ini.');
         }
 
-        $parsed = json_decode($jsonText, true);
+        return $this->processResponse($rawText);
+    }
+
+    private function processResponse(string $rawText): array
+    {
+        $friendlyMsg = 'Hmm, saya kurang paham 😅 Coba ceritakan transaksinya, misalnya: "beli kopi 25k cash" atau "gajian 5 juta BCA".';
+
+        $parsed = json_decode($this->cleanJson($rawText), true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('AI mengembalikan format yang tidak valid.');
+            throw new \RuntimeException($friendlyMsg);
         }
 
-        // Support single object (backward compat) — wrap in array
         if (isset($parsed['type'])) {
             $parsed = [$parsed];
         }
 
+        if (isset($parsed['transactions']) && is_array($parsed['transactions'])) {
+            $parsed = $parsed['transactions'];
+        }
+
         if (! is_array($parsed) || empty($parsed)) {
-            throw new \RuntimeException('AI mengembalikan format yang tidak valid.');
+            throw new \RuntimeException($friendlyMsg);
         }
 
         foreach ($parsed as &$item) {
-            if (! isset($item['type'], $item['amount'])) {
-                throw new \RuntimeException('AI mengembalikan format yang tidak valid.');
+            if (! isset($item['type']) || ! array_key_exists('amount', $item)) {
+                throw new \RuntimeException($friendlyMsg);
             }
-            $item['amount'] = max(0, (float) $item['amount']);
+            $item['amount'] = max(0, (float) ($item['amount'] ?? 0));
         }
 
         return $parsed;
+    }
+
+    private function cleanJson(string $text): string
+    {
+        $text = trim($text);
+        if (str_starts_with($text, '```')) {
+            $text = preg_replace('/^```(?:json)?\s*/i', '', $text);
+            $text = preg_replace('/\s*```$/', '', $text);
+        }
+        return trim($text);
     }
 
     private function buildPrompt(string $message, array $userCategories = [], array $userWallets = []): string

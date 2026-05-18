@@ -12,7 +12,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
-    const AI_FREE_DAILY_LIMIT = 5;
+    const AI_FREE_MONTHLY_LIMIT = 30;
 
     protected $fillable = [
         'name',
@@ -63,13 +63,15 @@ class User extends Authenticatable
     {
         if ($this->isPremium()) return -1; // -1 = unlimited
 
-        $today = now()->toDateString();
+        $now = now();
 
-        if ($this->ai_credits_date === null || $this->ai_credits_date->toDateString() !== $today) {
-            return self::AI_FREE_DAILY_LIMIT;
+        if ($this->ai_credits_date === null ||
+            $this->ai_credits_date->year  !== $now->year ||
+            $this->ai_credits_date->month !== $now->month) {
+            return self::AI_FREE_MONTHLY_LIMIT;
         }
 
-        return max(0, self::AI_FREE_DAILY_LIMIT - $this->ai_credits_today);
+        return max(0, self::AI_FREE_MONTHLY_LIMIT - $this->ai_credits_today);
     }
 
     public function canUseAi(): bool
@@ -79,12 +81,16 @@ class User extends Authenticatable
 
     public function incrementAiCredits(): void
     {
-        $today = now()->toDateString();
+        $now = now();
 
-        if ($this->ai_credits_date === null || $this->ai_credits_date->toDateString() !== $today) {
+        $isNewMonth = $this->ai_credits_date === null ||
+            $this->ai_credits_date->year  !== $now->year ||
+            $this->ai_credits_date->month !== $now->month;
+
+        if ($isNewMonth) {
             $this->update([
                 'ai_credits_today' => 1,
-                'ai_credits_date'  => $today,
+                'ai_credits_date'  => $now->toDateString(),
             ]);
         } else {
             $this->increment('ai_credits_today');
