@@ -24,6 +24,25 @@ class BackupController extends Controller
             'compressed'   => 'boolean',
         ]);
 
+        $user = $request->user();
+
+        // Rate limiting: free user hanya boleh backup 1x per 7 hari
+        if (! $user->isPremium()) {
+            $existing = UserBackup::where('user_id', $user->id)->first();
+            if ($existing && $existing->backed_up_at) {
+                $daysSinceLast = $existing->backed_up_at->diffInDays(now());
+                if ($daysSinceLast < 7) {
+                    $nextBackup = $existing->backed_up_at->copy()->addDays(7);
+                    return response()->json([
+                        'success'        => false,
+                        'message'        => 'Backup gratis hanya tersedia 1x per minggu.',
+                        'code'           => 'rate_limited',
+                        'next_backup_at' => $nextBackup->toIso8601String(),
+                    ], 429);
+                }
+            }
+        }
+
         $isCompressed = $request->boolean('compressed', false);
         $rawData      = $request->input('data');
 
