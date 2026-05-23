@@ -23,7 +23,7 @@ class AiController extends Controller
     public function parseTransaction(Request $request): JsonResponse
     {
         $request->validate([
-            'message'         => 'required|string|max:500',
+            'message'         => 'required|string|max:200',
             'user_categories' => 'nullable|array',
             'user_wallets'    => 'nullable|array',
         ]);

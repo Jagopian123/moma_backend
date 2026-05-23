@@ -119,6 +119,10 @@ class AiService
             throw new \RuntimeException($friendlyMsg);
         }
 
+        if (isset($parsed[0]['not_transaction']) && $parsed[0]['not_transaction'] === true) {
+            throw new \RuntimeException('Saya hanya bisa membantu mencatat transaksi keuangan 😊 Coba ketik seperti: "makan siang 30k", "gajian 5jt bca" atau "transfer dari bca ke bri 3jt".');
+        }
+
         foreach ($parsed as &$item) {
             if (! isset($item['type']) || ! array_key_exists('amount', $item)) {
                 throw new \RuntimeException($friendlyMsg);
@@ -175,6 +179,7 @@ class AiService
 Parser transaksi keuangan Indonesia. Hari ini: $today.$walletSection$userCategorySection
 
 ATURAN (output: JSON array valid, selalu array, tanpa markdown):
+- Jika input BUKAN transaksi keuangan (sapaan, pertanyaan, dll) → return HANYA: [{"not_transaction":true}]
 - Angka IDR: "k"/"ribu"=×1000, "jt"/"juta"=×1.000.000
 - type: "expense"|"income"|"transfer"
 - title: maks 50 karakter
