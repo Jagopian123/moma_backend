@@ -78,6 +78,11 @@ class ReceiptService
             throw new \RuntimeException('AI tidak dapat membaca struk ini.');
         }
 
+        Log::info('[AI Receipt] OpenRouter response', [
+            'model'    => $this->model,
+            'response' => $rawText,
+        ]);
+
         return $this->processResponse($rawText);
     }
 
@@ -118,6 +123,11 @@ class ReceiptService
         if (! $rawText) {
             throw new \RuntimeException('AI tidak dapat membaca struk ini.');
         }
+
+        Log::info('[AI Receipt] Gemini fallback response', [
+            'model'    => $this->geminiModel,
+            'response' => $rawText,
+        ]);
 
         return $this->processResponse($rawText);
     }

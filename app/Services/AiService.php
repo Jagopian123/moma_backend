@@ -65,6 +65,12 @@ class AiService
             throw new \RuntimeException('AI tidak dapat memproses pesan ini.');
         }
 
+        Log::info('[AI Parse] OpenRouter response', [
+            'model'    => $this->model,
+            'input'    => $message,
+            'response' => $rawText,
+        ]);
+
         return $this->processResponse($rawText);
     }
 
@@ -93,6 +99,11 @@ class AiService
         if (! $rawText) {
             throw new \RuntimeException('AI tidak dapat memproses pesan ini.');
         }
+
+        Log::info('[AI Parse] Gemini fallback response', [
+            'model'    => $this->geminiModel,
+            'response' => $rawText,
+        ]);
 
         return $this->processResponse($rawText);
     }
@@ -179,7 +190,8 @@ class AiService
 Parser transaksi keuangan Indonesia. Hari ini: $today.$walletSection$userCategorySection
 
 ATURAN (output: JSON array valid, selalu array, tanpa markdown):
-- Jika input BUKAN transaksi keuangan (sapaan, pertanyaan, dll) → return HANYA: [{"not_transaction":true}]
+- Jika ada nominal (angka, k, rb, ribu, jt, juta, m, miliar) atau kata keuangan (beli, makan, bayar, jajan, transfer, gajian, dapat, terima, keluar, masuk, belanja, bayar, hutang, cicil) → WAJIB parse sebagai transaksi, JANGAN return not_transaction
+- Jika input JELAS bukan transaksi (hanya sapaan: "halo", "oke", "makasih", "test"; atau pertanyaan umum tanpa nominal) → return HANYA: [{"not_transaction":true}]
 - Angka IDR: "k"/"ribu"=×1000, "jt"/"juta"=×1.000.000
 - type: "expense"|"income"|"transfer"
 - title: maks 50 karakter
