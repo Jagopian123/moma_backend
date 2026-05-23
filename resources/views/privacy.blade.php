@@ -111,10 +111,14 @@
                             </div>
                             <ul class="list-disc list-inside space-y-1 text-sm text-gray-600">
                                 <li>Teks pesan yang Anda kirim ke asisten AI Moma</li>
-                                <li>Ringkasan konteks keuangan yang relevan (untuk menghasilkan jawaban yang akurat)</li>
+                                <li>Foto struk yang Anda unggah untuk fitur scan struk</li>
+                                <li>Daftar kategori dan dompet Anda (sebagai konteks agar hasil lebih akurat)</li>
                             </ul>
                             <p class="mt-3 text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
-                                Pesan AI diproses oleh Google Gemini API hanya untuk sesi tersebut dan tidak disimpan secara permanen di server kami.
+                                Pesan AI diproses oleh <strong>penyedia layanan AI pihak ketiga</strong> hanya untuk menghasilkan respons dan tidak disimpan permanen di server kami maupun penyedia AI tersebut.
+                            </p>
+                            <p class="mt-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+                                <strong>Riwayat chat AI</strong> disimpan secara lokal di perangkat Anda dan dihapus otomatis saat Anda keluar akun atau menghapus akun.
                             </p>
                         </div>
                         <div class="bg-white rounded-xl p-5 border border-gray-200">
@@ -161,13 +165,13 @@
                             <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                                 <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                             </div>
-                            <span><strong>Asisten AI (opsional):</strong> ketika Anda menggunakan fitur chat AI, pesan dan ringkasan konteks keuangan dikirim ke Google Gemini API hanya untuk memproses jawaban, lalu sesi tersebut berakhir.</span>
+                            <span><strong>Asisten AI (opsional):</strong> ketika Anda menggunakan fitur chat AI atau scan struk, pesan dikirim ke penyedia layanan AI pihak ketiga hanya untuk memproses jawaban. Pengguna gratis memiliki batas kredit AI bulanan; pengguna Premium tidak terbatas.</span>
                         </li>
                         <li class="flex items-start gap-3 bg-white rounded-xl p-4 border border-gray-200">
                             <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                                 <svg class="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                             </div>
-                            <span><strong>Backup online (opsional, atas permintaan Anda):</strong> hanya ketika Anda menekan tombol <em>Backup Online</em>, data transaksi, budget, dan aset dikirim ke server kami untuk disimpan sebagai cadangan. Anda yang mengendalikan kapan ini terjadi.</span>
+                            <span><strong>Backup online otomatis:</strong> data transaksi, budget, dan aset dikirim ke server kami secara otomatis sesuai plan Anda — <em>pengguna gratis</em> mendapat backup otomatis <strong>1x per minggu</strong>, <em>pengguna Premium</em> mendapat backup otomatis <strong>harian</strong> dan dapat melakukan backup manual kapan saja. Anda dapat menonaktifkan fitur ini melalui Pengaturan.</span>
                         </li>
                         <li class="flex items-start gap-3 bg-white rounded-xl p-4 border border-gray-200">
                             <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
@@ -206,18 +210,18 @@
                                         <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
                                     </div>
                                     <div>
-                                        <p class="font-medium text-blue-800">Server Kami <span class="font-normal text-blue-600 text-xs">(hanya jika Anda klik Backup Online)</span></p>
-                                        <p class="text-blue-700 mt-0.5">Data backup Anda disimpan terenkripsi menggunakan HTTPS/TLS. Akses terbatas dan hanya digunakan untuk mengembalikan data ke perangkat Anda.</p>
+                                        <p class="font-medium text-blue-800">Server Kami <span class="font-normal text-blue-600 text-xs">(backup otomatis sesuai plan)</span></p>
+                                        <p class="text-blue-700 mt-0.5">Data backup disimpan terenkripsi via HTTPS/TLS. Gratis: otomatis 1x/minggu. Premium: otomatis harian + manual kapan saja. Akses hanya untuk pemulihan data ke perangkat Anda.</p>
                                     </div>
                                 </div>
-                                <!-- Google API -->
+                                <!-- AI API -->
                                 <div class="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                                     <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
                                         <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                     </div>
                                     <div>
-                                        <p class="font-medium text-amber-800">Google Gemini API <span class="font-normal text-amber-600 text-xs">(hanya saat pakai fitur AI)</span></p>
-                                        <p class="text-amber-700 mt-0.5">Pesan chat diproses untuk menghasilkan respons AI. Data tidak disimpan secara permanen setelah sesi selesai.</p>
+                                        <p class="font-medium text-amber-800">Penyedia Layanan AI <span class="font-normal text-amber-600 text-xs">(hanya saat pakai fitur AI)</span></p>
+                                        <p class="text-amber-700 mt-0.5">Pesan diproses oleh penyedia layanan AI pihak ketiga untuk menghasilkan respons. Data tidak disimpan permanen setelah sesi selesai.</p>
                                     </div>
                                 </div>
                             </div>
@@ -251,8 +255,16 @@
                     <p class="text-gray-600 text-sm leading-relaxed mb-4">Kami <strong>tidak menjual</strong> data Anda. Data Anda hanya dibagikan dalam kondisi berikut:</p>
                     <div class="space-y-3 text-sm">
                         <div class="bg-white rounded-xl p-5 border border-gray-200">
-                            <h3 class="font-medium text-gray-800 mb-2">Google (Sign-In &amp; AI)</h3>
-                            <p class="text-gray-600">Kami menggunakan Google Sign-In untuk autentikasi dan Google Gemini AI untuk fitur asisten keuangan. Interaksi Anda tunduk pada <a href="https://policies.google.com/privacy" class="text-primary hover:underline" target="_blank">Kebijakan Privasi Google</a>. Data transaksi yang dikirim ke AI digunakan hanya untuk menghasilkan respons dalam sesi tersebut.</p>
+                            <h3 class="font-medium text-gray-800 mb-2">Google (Sign-In)</h3>
+                            <p class="text-gray-600">Kami menggunakan Google Sign-In untuk autentikasi akun. Interaksi Anda tunduk pada <a href="https://policies.google.com/privacy" class="text-primary hover:underline" target="_blank">Kebijakan Privasi Google</a>.</p>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 border border-gray-200">
+                            <h3 class="font-medium text-gray-800 mb-2">Penyedia Layanan AI</h3>
+                            <p class="text-gray-600">Kami menggunakan penyedia layanan AI pihak ketiga untuk memproses permintaan fitur AI (catat transaksi via teks/suara dan scan struk). Pesan yang Anda kirim diteruskan hanya untuk menghasilkan respons dan tidak disimpan secara permanen oleh penyedia tersebut.</p>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 border border-gray-200">
+                            <h3 class="font-medium text-gray-800 mb-2">Google Play / Apple App Store (Pembelian Premium)</h3>
+                            <p class="text-gray-600">Transaksi berlangganan Premium diproses sepenuhnya oleh Google Play Store atau Apple App Store. Moma <strong>tidak menyimpan</strong> informasi kartu kredit, detail pembayaran, atau data transaksi keuangan Anda dalam proses pembelian. Tunduk pada kebijakan privasi masing-masing platform.</p>
                         </div>
                         <div class="bg-white rounded-xl p-5 border border-gray-200">
                             <h3 class="font-medium text-gray-800 mb-2">Kewajiban Hukum</h3>
