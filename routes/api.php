@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // AI
     Route::prefix('ai')->group(function () {
         Route::get('/credits',            [AiController::class, 'credits']);
+        Route::post('/credits/reward',    [AiController::class, 'rewardCredits']);
         Route::post('/parse-transaction', [AiController::class, 'parseTransaction']);
         Route::post('/scan-receipt',      [AiController::class, 'scanReceipt']);
     });

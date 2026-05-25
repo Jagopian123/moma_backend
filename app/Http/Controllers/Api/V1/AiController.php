@@ -8,6 +8,7 @@ use App\Services\AiService;
 use App\Services\ReceiptService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -125,6 +126,43 @@ class AiController extends Controller
                 'credits_remaining' => $user->remainingAiCredits(),
                 'monthly_limit'     => User::AI_FREE_MONTHLY_LIMIT,
             ],
+        ]);
+    }
+
+    // ── Ad reward — max 1x per hari per user ──────────────────────────────────
+
+    public function rewardCredits(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if ($user->isPremium()) {
+            return response()->json([
+                'success'           => true,
+                'credits_remaining' => -1,
+                'message'           => 'Kamu sudah Premium, kredit tidak terbatas!',
+            ]);
+        }
+
+        $key = "ad_reward:{$user->id}";
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            $hours   = ceil($seconds / 3600);
+            return response()->json([
+                'success' => false,
+                'message' => "Sudah 3x nonton iklan hari ini. Kembali lagi besok!",
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60 * 60 * 24);
+
+        $remaining = $user->rewardAiCredits(5);
+
+        return response()->json([
+            'success'           => true,
+            'credits_remaining' => $remaining,
+            'message'           => '+3 kredit AI berhasil ditambahkan!',
         ]);
     }
 }

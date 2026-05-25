@@ -79,6 +79,24 @@ class User extends Authenticatable
         return $this->isPremium() || $this->remainingAiCredits() > 0;
     }
 
+    // Kurangi usage sebesar $bonus untuk menambah sisa kredit
+    public function rewardAiCredits(int $bonus = 5): int
+    {
+        $now = now();
+
+        $isNewMonth = $this->ai_credits_date === null ||
+            $this->ai_credits_date->year  !== $now->year ||
+            $this->ai_credits_date->month !== $now->month;
+
+        if (!$isNewMonth) {
+            $newUsage = ($this->ai_credits_today ?? 0) - $bonus;
+            $this->update(['ai_credits_today' => $newUsage]);
+            $this->refresh();
+        }
+
+        return $this->remainingAiCredits();
+    }
+
     public function incrementAiCredits(): void
     {
         $now = now();
