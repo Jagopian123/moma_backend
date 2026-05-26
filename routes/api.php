@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BackupController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\PremiumController;
@@ -52,5 +53,11 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::prefix('backup')->group(function () {
         Route::post('/',  [BackupController::class, 'store']);
         Route::get('/',   [BackupController::class, 'show']);
+    });
+
+    // FCM Device Token
+    Route::prefix('fcm')->group(function () {
+        Route::post('/token',   [DeviceTokenController::class, 'store']);
+        Route::delete('/token', [DeviceTokenController::class, 'destroy']);
     });
 });
