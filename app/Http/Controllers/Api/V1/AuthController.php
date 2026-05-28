@@ -99,10 +99,11 @@ class AuthController extends Controller
                 'name'       => $user->name,
                 'email'      => $user->email,
                 'avatar'     => $user->avatar,
-                'is_premium' => $user->isPremium(),
-                'currency'   => $user->currency,
-                'locale'     => $user->locale,
-                'created_at' => $user->created_at,
+                'is_premium'          => $user->isPremium(),
+                'premium_expires_at'  => $user->premium_expires_at,
+                'currency'            => $user->currency,
+                'locale'              => $user->locale,
+                'created_at'          => $user->created_at,
             ],
         ]);
     }
