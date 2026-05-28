@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AiController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BackupController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\PremiumController;
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\Route;
 
 // ── Health Check ────────────────────────────────────────────────
 Route::get('/v1/health', [HealthController::class, 'check']);
+
+// ── Banner (public) ─────────────────────────────────────────────
+Route::get('/v1/banner/active', [BannerController::class, 'active']); // full: /api/v1/banner/active
 
 // ── Auth Public ─────────────────────────────────────────────────
 Route::prefix('v1/auth')->group(function () {

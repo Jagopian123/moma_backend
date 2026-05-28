@@ -11,10 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('device_tokens', function (Blueprint $table) {
+        Schema::create('banners', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('token')->unique();
+            $table->string('image_url');
+            $table->string('link_url')->nullable();
+            $table->boolean('is_active')->default(false);
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
         });
     }
@@ -24,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('device_tokens');
+        Schema::dropIfExists('banners');
     }
 };
