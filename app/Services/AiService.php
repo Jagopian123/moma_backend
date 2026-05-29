@@ -65,12 +65,6 @@ class AiService
             throw new \RuntimeException('AI tidak dapat memproses pesan ini.');
         }
 
-        Log::info('[AI Parse] OpenRouter response', [
-            'model'    => $this->model,
-            'input'    => $message,
-            'response' => $rawText,
-        ]);
-
         return $this->processResponse($rawText);
     }
 
@@ -99,11 +93,6 @@ class AiService
         if (! $rawText) {
             throw new \RuntimeException('AI tidak dapat memproses pesan ini.');
         }
-
-        Log::info('[AI Parse] Gemini fallback response', [
-            'model'    => $this->geminiModel,
-            'response' => $rawText,
-        ]);
 
         return $this->processResponse($rawText);
     }
